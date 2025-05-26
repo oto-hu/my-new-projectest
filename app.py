@@ -12,9 +12,17 @@ def ensure_analysis_results():
     if not os.path.exists('static/analysis_results.json'):
         print("解析結果が見つかりません。解析を実行します...")
         try:
-            subprocess.run([sys.executable, 'health_analysis.py'], check=True)
+            result = subprocess.run([sys.executable, 'health_analysis.py'], 
+                                  capture_output=True, text=True, check=True)
+            print("解析が正常に完了しました")
+            print(result.stdout)
         except subprocess.CalledProcessError as e:
             print(f"解析実行エラー: {e}")
+            print(f"標準出力: {e.stdout}")
+            print(f"標準エラー: {e.stderr}")
+            return False
+        except Exception as e:
+            print(f"予期しないエラー: {e}")
             return False
     return True
 
@@ -29,7 +37,11 @@ def index():
         with open('static/analysis_results.json', 'r', encoding='utf-8') as f:
             results = json.load(f)
     except FileNotFoundError:
-        return "解析結果が見つかりません。", 404
+        return "解析結果が見つかりません。health_analysis.pyを先に実行してください。", 404
+    except json.JSONDecodeError as e:
+        return f"解析結果ファイルが破損しています。health_analysis.pyを再実行してください。エラー: {e}", 500
+    except Exception as e:
+        return f"解析結果の読み込みエラー: {e}", 500
     
     return render_template('index.html', results=results)
 
@@ -44,7 +56,11 @@ def api_analysis():
             results = json.load(f)
         return jsonify(results)
     except FileNotFoundError:
-        return jsonify({"error": "解析結果が見つかりません"}), 404
+        return jsonify({"error": "解析結果が見つかりません。health_analysis.pyを先に実行してください。"}), 404
+    except json.JSONDecodeError as e:
+        return jsonify({"error": f"解析結果ファイルが破損しています。health_analysis.pyを再実行してください。エラー: {e}"}), 500
+    except Exception as e:
+        return jsonify({"error": f"解析結果の読み込みエラー: {e}"}), 500
 
 @app.route('/api/rerun-analysis')
 def api_rerun_analysis():

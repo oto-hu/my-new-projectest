@@ -179,21 +179,50 @@ def load_and_analyze_health_data():
     plt.close()
     
     # 結果をJSONで保存
-    analysis_results = {
-        'basic_info': basic_info,
-        'summary_statistics': summary_stats,
-        'age_group_statistics': age_group_stats.to_dict(),
-        'bmi_category_statistics': bmi_category_stats.to_dict(),
-        'correlations': {
-            'exercise_bmi': df[['Exercise_Days_Per_Week', 'BMI']].corr().iloc[0, 1],
-            'exercise_systolic_bp': df[['Exercise_Days_Per_Week', 'Systolic_BP']].corr().iloc[0, 1],
-            'exercise_cholesterol': df[['Exercise_Days_Per_Week', 'Cholesterol']].corr().iloc[0, 1],
-            'exercise_blood_sugar': df[['Exercise_Days_Per_Week', 'Fasting_Blood_Sugar']].corr().iloc[0, 1]
+    try:
+        # JSONに変換できない値（NaN等）を処理
+        correlations = {}
+        for key, corr_data in [
+            ('exercise_bmi', df[['Exercise_Days_Per_Week', 'BMI']]),
+            ('exercise_systolic_bp', df[['Exercise_Days_Per_Week', 'Systolic_BP']]),
+            ('exercise_cholesterol', df[['Exercise_Days_Per_Week', 'Cholesterol']]),
+            ('exercise_blood_sugar', df[['Exercise_Days_Per_Week', 'Fasting_Blood_Sugar']])
+        ]:
+            corr_value = corr_data.corr().iloc[0, 1]
+            correlations[key] = float(corr_value) if not np.isnan(corr_value) else 0.0
+        
+        analysis_results = {
+            'basic_info': basic_info,
+            'summary_statistics': summary_stats,
+            'age_group_statistics': age_group_stats.to_dict(),
+            'bmi_category_statistics': bmi_category_stats.to_dict(),
+            'correlations': correlations
         }
-    }
-    
-    with open('static/analysis_results.json', 'w', encoding='utf-8') as f:
-        json.dump(analysis_results, f, ensure_ascii=False, indent=2)
+        
+        # staticディレクトリを確実に作成
+        Path('static').mkdir(exist_ok=True)
+        
+        # 一時ファイルに書き込んでからrenameで原子的に更新
+        temp_file = 'static/analysis_results.json.tmp'
+        with open(temp_file, 'w', encoding='utf-8') as f:
+            json.dump(analysis_results, f, ensure_ascii=False, indent=2)
+        
+        # ファイルを原子的に置き換え
+        import os
+        os.rename(temp_file, 'static/analysis_results.json')
+        
+    except Exception as e:
+        print(f"JSON保存エラー: {e}")
+        # エラーの場合でも部分的な結果を保存
+        Path('static').mkdir(exist_ok=True)
+        error_result = {
+            'error': f"解析中にエラーが発生しました: {e}",
+            'basic_info': basic_info if 'basic_info' in locals() else {},
+            'summary_statistics': summary_stats if 'summary_stats' in locals() else {}
+        }
+        with open('static/analysis_results.json', 'w', encoding='utf-8') as f:
+            json.dump(error_result, f, ensure_ascii=False, indent=2)
+        raise
     
     print("解析完了！結果は以下に保存されました：")
     print("- static/analysis_results.json: 解析結果データ")
