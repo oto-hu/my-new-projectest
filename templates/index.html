@@ -1,0 +1,285 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>健康診断データ解析結果</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <style>
+        .analysis-card {
+            margin-bottom: 20px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
+        .chart-container {
+            text-align: center;
+            padding: 20px;
+        }
+        .chart-container img {
+            max-width: 100%;
+            height: auto;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+        }
+        .stat-box {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 20px;
+            border-radius: 10px;
+            margin-bottom: 20px;
+        }
+        .correlation-box {
+            background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+            color: white;
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 10px;
+        }
+        .navbar {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%) !important;
+        }
+        .table-container {
+            max-height: 400px;
+            overflow-y: auto;
+        }
+    </style>
+</head>
+<body>
+    <nav class="navbar navbar-dark">
+        <div class="container">
+            <span class="navbar-brand mb-0 h1">
+                <i class="fas fa-heartbeat"></i> 健康診断データ解析ダッシュボード
+            </span>
+            <button class="btn btn-outline-light" onclick="rerunAnalysis()">
+                <i class="fas fa-sync-alt"></i> 解析再実行
+            </button>
+        </div>
+    </nav>
+
+    <div class="container mt-4">
+        <!-- 基本情報セクション -->
+        <div class="row">
+            <div class="col-12">
+                <div class="card analysis-card">
+                    <div class="card-header bg-primary text-white">
+                        <h4><i class="fas fa-info-circle"></i> 基本情報（TASK-01）</h4>
+                    </div>
+                    <div class="card-body">
+                        <div class="row">
+                            <div class="col-md-3">
+                                <div class="stat-box text-center">
+                                    <h3>{{ results.basic_info.total_rows }}</h3>
+                                    <p>総データ数</p>
+                                </div>
+                            </div>
+                            <div class="col-md-3">
+                                <div class="stat-box text-center">
+                                    <h3>{{ results.basic_info.total_columns }}</h3>
+                                    <p>総列数</p>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <h6>データ項目:</h6>
+                                <ul class="list-group">
+                                    {% for column in results.basic_info.columns %}
+                                    <li class="list-group-item d-flex justify-content-between">
+                                        <span>{{ column }}</span>
+                                        <span class="badge bg-secondary">{{ results.basic_info.data_types[column] }}</span>
+                                    </li>
+                                    {% endfor %}
+                                </ul>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 要約統計量セクション -->
+        <div class="row">
+            <div class="col-12">
+                <div class="card analysis-card">
+                    <div class="card-header bg-success text-white">
+                        <h4><i class="fas fa-chart-bar"></i> 要約統計量（TASK-02）</h4>
+                    </div>
+                    <div class="card-body">
+                        <div class="table-container">
+                            <table class="table table-striped table-hover">
+                                <thead class="table-dark">
+                                    <tr>
+                                        <th>統計量</th>
+                                        {% for column in results.summary_statistics.keys() %}
+                                        <th>{{ column }}</th>
+                                        {% endfor %}
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% set stats = ['count', 'mean', 'std', 'min', '25%', '50%', '75%', 'max'] %}
+                                    {% for stat in stats %}
+                                    <tr>
+                                        <td><strong>{{ stat }}</strong></td>
+                                        {% for column in results.summary_statistics.keys() %}
+                                        <td>{{ "%.2f"|format(results.summary_statistics[column][stat]) if results.summary_statistics[column][stat] is number else results.summary_statistics[column][stat] }}</td>
+                                        {% endfor %}
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 主要指標セクション -->
+        <div class="row">
+            <div class="col-md-6">
+                <div class="card analysis-card">
+                    <div class="card-header bg-warning text-dark">
+                        <h4><i class="fas fa-users"></i> 年代別統計（TASK-03）</h4>
+                    </div>
+                    <div class="card-body">
+                        <table class="table table-sm">
+                            <thead>
+                                <tr>
+                                    <th>年代</th>
+                                    <th>平均BMI</th>
+                                    <th>収縮期血圧</th>
+                                    <th>運動日数</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for age_group, stats in results.age_group_statistics.items() %}
+                                <tr>
+                                    <td>{{ age_group }}</td>
+                                    <td>{{ "%.1f"|format(stats.BMI) }}</td>
+                                    <td>{{ "%.1f"|format(stats.Systolic_BP) }}</td>
+                                    <td>{{ "%.1f"|format(stats.Exercise_Days_Per_Week) }}</td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-6">
+                <div class="card analysis-card">
+                    <div class="card-header bg-info text-white">
+                        <h4><i class="fas fa-weight"></i> BMIカテゴリ分布</h4>
+                    </div>
+                    <div class="card-body">
+                        {% for category, count in results.bmi_category_statistics.items() %}
+                        <div class="d-flex justify-content-between align-items-center mb-2">
+                            <span>{{ category }}</span>
+                            <span class="badge bg-primary">{{ count }}人</span>
+                        </div>
+                        <div class="progress mb-3">
+                            <div class="progress-bar" style="width: {{ (count / results.basic_info.total_rows * 100)|round(1) }}%"></div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 相関分析セクション -->
+        <div class="row">
+            <div class="col-12">
+                <div class="card analysis-card">
+                    <div class="card-header bg-dark text-white">
+                        <h4><i class="fas fa-project-diagram"></i> 運動と健康指標の相関分析</h4>
+                    </div>
+                    <div class="card-body">
+                        <div class="row">
+                            <div class="col-md-3">
+                                <div class="correlation-box text-center">
+                                    <h5>運動 × BMI</h5>
+                                    <h3>{{ "%.3f"|format(results.correlations.exercise_bmi) }}</h3>
+                                </div>
+                            </div>
+                            <div class="col-md-3">
+                                <div class="correlation-box text-center">
+                                    <h5>運動 × 収縮期血圧</h5>
+                                    <h3>{{ "%.3f"|format(results.correlations.exercise_systolic_bp) }}</h3>
+                                </div>
+                            </div>
+                            <div class="col-md-3">
+                                <div class="correlation-box text-center">
+                                    <h5>運動 × コレステロール</h5>
+                                    <h3>{{ "%.3f"|format(results.correlations.exercise_cholesterol) }}</h3>
+                                </div>
+                            </div>
+                            <div class="col-md-3">
+                                <div class="correlation-box text-center">
+                                    <h5>運動 × 血糖値</h5>
+                                    <h3>{{ "%.3f"|format(results.correlations.exercise_blood_sugar) }}</h3>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 可視化セクション -->
+        <div class="row">
+            <div class="col-12">
+                <div class="card analysis-card">
+                    <div class="card-header bg-secondary text-white">
+                        <h4><i class="fas fa-chart-line"></i> データ可視化（TASK-04）</h4>
+                    </div>
+                    <div class="card-body">
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="chart-container">
+                                    <h5>BMIカテゴリ別分布</h5>
+                                    <img src="{{ url_for('static', filename='images/bmi_category_distribution.png') }}" alt="BMIカテゴリ分布">
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="chart-container">
+                                    <h5>年代別平均BMI推移</h5>
+                                    <img src="{{ url_for('static', filename='images/age_group_bmi_trend.png') }}" alt="年代別BMI推移">
+                                </div>
+                            </div>
+                        </div>
+                        <div class="row mt-4">
+                            <div class="col-md-6">
+                                <div class="chart-container">
+                                    <h5>運動と健康指標の相関</h5>
+                                    <img src="{{ url_for('static', filename='images/exercise_correlation_scatter.png') }}" alt="運動相関散布図">
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="chart-container">
+                                    <h5>健康指標の分布</h5>
+                                    <img src="{{ url_for('static', filename='images/health_indicators_distribution.png') }}" alt="健康指標分布">
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <footer class="bg-light text-center py-3 mt-5">
+        <p class="mb-0">Generated with <a href="https://claude.ai/code" target="_blank">Claude Code</a></p>
+    </footer>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        async function rerunAnalysis() {
+            const response = await fetch('/api/rerun-analysis');
+            const result = await response.json();
+            
+            if (response.ok) {
+                alert('解析が完了しました。ページを再読み込みします。');
+                location.reload();
+            } else {
+                alert('解析エラー: ' + result.error);
+            }
+        }
+    </script>
+</body>
+</html>
